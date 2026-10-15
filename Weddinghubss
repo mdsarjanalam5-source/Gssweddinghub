@@ -1,0 +1,62 @@
+
+name: GSS Wedding Hub APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Repository
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract Project ZIP
+        shell: bash
+        run: |
+          set -e
+          mkdir -p project
+          unzip -o gss-wedding-hub-project.zip -d project
+
+          ZIP=$(find project -name 'gss-wedding-hub-project.zip' -type f | head -n 1)
+          if [ -n "$ZIP" ]; then
+            mkdir -p nested
+            unzip -o "$ZIP" -d nested
+            cp -a nested/. project/
+          fi
+
+      - name: Find Gradle Wrapper
+        shell: bash
+        run: |
+          WRAPPER=$(find project -type f -name gradlew | head -n 1)
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: gradlew file nahi mili"
+            find project -maxdepth 4 -type f | head -n 100
+            exit 1
+          fi
+          echo "WRAPPER=$WRAPPER" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        shell: bash
+        run: |
+          chmod +x "$WRAPPER"
+          cd "$(dirname "$WRAPPER")"
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GSS-Wedding-Hub-APK
+          path: project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          
